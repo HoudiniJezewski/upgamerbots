@@ -10,8 +10,8 @@ const commands = getCommandModules()
   .map(cmd => cmd.data.toJSON());
 
 
-const { TOKEN_MECHAGAMER, CLIENT_ID, GUILD_ID } = process.env
-const rest = new REST({ version: '10' }).setToken(TOKEN_MECHAGAMER);
+const { TOKEN_UPBOT, CLIENT_ID, GUILD_ID } = process.env
+const rest = new REST({ version: '10' }).setToken(TOKEN_UPBOT);
 
 (async () => {
 	try {

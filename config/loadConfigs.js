@@ -3,7 +3,6 @@ const botDefs = require("./botConfig");
 
 function loadConfigs() {
   return Object.values(botDefs)
-  .filter((bot) => bot.tokenEnv !== 'TOKEN_MECHAGAMER')
   .map((bot) => {
     const token = process.env[bot.tokenEnv];
 
@@ -17,10 +16,6 @@ function loadConfigs() {
       token,
     };
   });
-}
-
-function getMechaToken() {
-  const token = process.env
 }
 
 module.exports = loadConfigs;
