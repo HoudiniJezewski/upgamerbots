@@ -3,6 +3,7 @@
     "target": "ES2022",
     "module": "commonjs",
     "moduleResolution": "node",
+    "ignoreDeprecations": "6.0",
 
     "allowJs": true,
     "checkJs": true,
@@ -13,6 +14,6 @@
     "noEmit": true,
     "strict": false
   },
-  "include": ["**/*.js"],
+  "include": ["**/*.js", "**/*.d.ts"],
   "exclude": ["node_modules"]
 }

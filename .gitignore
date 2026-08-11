@@ -1,3 +1,7 @@
 node_modules/
 .env*
+
 modelFiles/
+
+# state based data files
+creativeCallState.json

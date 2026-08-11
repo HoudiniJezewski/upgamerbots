@@ -1,4 +1,4 @@
-const { Client, Events, GatewayIntentBits, Collection, MessageFlags } = require("discord.js");
+const { Client, Events, GatewayIntentBits, Partials, Collection, MessageFlags } = require("discord.js");
 const loadCommands = require('../utility/loadCommands');
 const BotManager = require("../llm/botManager");
 const loadConfigs = require("../config/loadConfigs");
@@ -12,7 +12,10 @@ class UpBot {
                 GatewayIntentBits.Guilds,
                 GatewayIntentBits.GuildMessages,
                 GatewayIntentBits.MessageContent,
+                GatewayIntentBits.GuildMessageReactions,
             ],
+            // needed for any caches reactions
+            partials: [Partials.Message, Partials.Channel, Partials.Reaction],
         });
 
         // @ts-ignore
@@ -34,9 +37,20 @@ class UpBot {
         });
 
         this.client.addListener(Events.InteractionCreate, async (interaction) => {
-            if (!interaction.isChatInputCommand) return;
-            await this.#handleSlashCommands(interaction);
-        });  
+            if (interaction.isChatInputCommand()) {
+                await this.#handleSlashCommands(interaction);
+            } else if (interaction.isModalSubmit()) {
+                await this.#handleModalSubmit(interaction);
+            }
+        });
+
+        this.client.on(Events.MessageReactionAdd, async (reaction, user) => {
+            await this.#handleReactionChange(reaction, user, true);
+        });
+
+        this.client.on(Events.MessageReactionRemove, async (reaction, user) => {
+            await this.#handleReactionChange(reaction, user, false);
+        });
     }
 
     async start() {
@@ -61,11 +75,8 @@ class UpBot {
 		        return;
             }
 
-            const botCommands = new Set(["echo", "killall", "startall"]);
-
             try {
-                if (botCommands.has(interaction.commandName))
-                    await command.execute(interaction, { botManager: this.botManager });
+                await command.execute(interaction, { botManager: this.botManager });
             } catch (error) {
                 console.error(error);
                 if (interaction.replied || interaction.deferred) {
@@ -80,6 +91,54 @@ class UpBot {
                     });
                 }
             }
+    }
+
+    // Generic modal submit dispatch: looks up a handler by customId in
+    //  the registry loadCommands() built
+    async #handleModalSubmit(interaction) {
+        const handler = interaction.client.components.get(interaction.customId);
+
+        if (!handler) {
+            console.error(`No component handler for customId ${interaction.customId} was found.`);
+            return;
+        }
+
+        try {
+            await handler.handleSubmit(interaction);
+        } catch (error) {
+            console.error(error);
+            if (interaction.replied || interaction.deferred) {
+                await interaction.followUp({
+                    content: 'There was an error processing that submission.',
+                    flags: MessageFlags.Ephemeral,
+                });
+            } else {
+                await interaction.reply({
+                    content: 'There was an error processing that submission.',
+                    flags: MessageFlags.Ephemeral,
+                });
+            }
+        }
+    }
+
+    // Generic reaction dispatch: asks every registered watcher whether this
+    // reaction concerns it, and calls onAdd/onRemove on whichever one says yes.
+    async #handleReactionChange(reaction, user, added) {
+        if (user.bot) return;
+
+        // @ts-ignore
+        for (const watcher of this.client.reactionWatchers) {
+            try {
+                if (!(await watcher.matches(reaction))) continue;
+                if (added) {
+                    await watcher.onAdd(reaction, user);
+                } else {
+                    await watcher.onRemove(reaction, user);
+                }
+            } catch (error) {
+                console.error(`[${this.name}] Reaction watcher failed:`, error);
+            }
+        }
     }
 
     #handleLogin() {
